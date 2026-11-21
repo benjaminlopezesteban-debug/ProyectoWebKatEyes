@@ -1,70 +1,152 @@
-# Getting Started with Create React App
+# Kateyes — Tienda de cosméticos (React)
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Tienda online de cosméticos construida como aplicación de una sola página (SPA) con **React**. Es la migración de la versión original en HTML, CSS y JavaScript a componentes reutilizables, con diseño responsivo en Bootstrap y pruebas unitarias.
 
-## Available Scripts
+No hay backend: los datos salen de archivos JavaScript que simulan una base de datos y el estado del usuario (carrito, sesión, pedido) se guarda en `localStorage`.
 
-In the project directory, you can run:
+> Proyecto académico — Evaluación Parcial 2 de DSY1104 (desarrollo frontend con React).
 
-### `npm start`
+## Funcionalidades
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+**Tienda**
+- Catálogo con filtros por categoría y rango de precio, y acceso directo a una categoría desde el menú (`/productos?categoria=Labios`).
+- Detalle de producto con galería de imágenes, selector de cantidad, subtotal y productos relacionados.
+- Carrito en panel lateral y botón flotante: máximo 10 unidades por producto, ahorro total y persistencia entre páginas y recargas.
+- Checkout con validación de datos, método de pago, pago simulado y pantallas de compra exitosa y de pago fallido.
+- Modal de novedades en la página de inicio.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+**Usuarios**
+- Registro con región y comuna dependientes (16 regiones y 346 comunas de Chile).
+- Inicio y cierre de sesión simulados; con sesión iniciada, el checkout parte con los datos del usuario.
 
-### `npm test`
+**Contenido**
+- Blog con listado y entradas individuales, página "Nosotros" y formulario de contacto con contador de caracteres.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Tecnologías
 
-### `npm run build`
+| Área | Herramienta |
+|---|---|
+| Base | React + Vite |
+| Navegación | React Router |
+| Estilos | Bootstrap 5.3, Bootstrap Icons y `src/index.css` |
+| Estado compartido | React Context (carrito y sesión) |
+| Pruebas | Vitest, Testing Library, user-event, jest-dom (jsdom) |
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Requisitos
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- Node.js 20.19 o superior (o 22.12+), requerido por Vite.
+- npm.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Instalación y uso
 
-### `npm run eject`
+```bash
+# 1. Instalar dependencias del proyecto
+npm install
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+# 2. Si falta alguna de las librerías de la aplicación
+npm install react-router-dom bootstrap bootstrap-icons
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+# 3. Servidor de desarrollo
+npm run dev
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Vite muestra la URL local, normalmente `http://localhost:5173`.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+| Comando | Qué hace |
+|---|---|
+| `npm run dev` | Servidor de desarrollo con recarga automática |
+| `npm run build` | Compila la aplicación para producción en `dist/` |
+| `npm run preview` | Sirve localmente la versión compilada |
+| `npm run lint` | Revisa el código con ESLint |
+| `npx vitest run` | Ejecuta todas las pruebas una vez (o `npm test` si el script está definido en `package.json`) |
 
-## Learn More
+## Estructura del proyecto
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```
+src/
+├── main.jsx                 Punto de entrada: estilos, Router y Providers
+├── App.jsx                  Layout común y mapa de rutas
+├── index.css                Estilos globales
+│
+├── productos.js             Catálogo y CRUD en memoria
+├── blogs.js                 Entradas del blog
+├── regiones.js              Regiones y comunas
+├── carrito.js               Reglas del carrito (funciones puras)
+├── validaciones.js          Reglas de validación de formularios
+├── usuarios.js              Usuarios simulados (registro y autenticación)
+├── pedidos.js               Creación del pedido confirmado
+├── pagos.js                 Simulación de la pasarela de pago
+│
+├── utils/                   formatearPrecio.js, imagenes.js
+├── context/                 CarritoContext/Provider, SesionContext/Provider
+├── hooks/                   useFormulario.js
+├── components/              Header, Footer, PanelCarrito, TarjetaProducto, CampoFormulario, ...
+├── views/                   Una vista por página
+├── assets/                  Imágenes de productos, blogs y logo
+└── test/                    Pruebas unitarias y setup.js
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Los archivos de datos y reglas no dependen de React, por lo que se prueban directamente y podrían reutilizarse con un backend real. Las dependencias entre capas solo van hacia abajo: datos y reglas → utilidades → estado compartido → componentes → vistas.
 
-### Code Splitting
+## Rutas
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+| Ruta | Vista |
+|---|---|
+| `/` | Inicio |
+| `/productos` | Catálogo (acepta `?categoria=`) |
+| `/productos/:id` | Detalle de producto |
+| `/checkout` | Finalizar compra |
+| `/blogs` | Listado de blogs |
+| `/blogs/:slug` | Entrada del blog |
+| `/nosotros` | Sobre nosotros |
+| `/contacto` | Formulario de contacto |
+| `/iniciar-sesion` | Inicio de sesión |
+| `/registro` | Registro de usuario |
 
-### Analyzing the Bundle Size
+## Imágenes
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Las imágenes están en `src/assets/` (en cualquier subcarpeta). `productos.js` y `blogs.js` guardan solo el **nombre del archivo** (por ejemplo `Base líquida mate.jpg`) y `resolverImagen()` obtiene la URL final. Si un nombre no coincide con ningún archivo, se muestra un recuadro gris "Sin imagen".
 
-### Making a Progressive Web App
+## Datos y persistencia
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+| Clave en `localStorage` | Contenido |
+|---|---|
+| `kateye_carrito` | Productos y cantidades del carrito |
+| `kateye_sesion` | Id del usuario con sesión iniciada |
+| `kateye_usuarios` | Usuarios registrados |
+| `kateye_ultimo_pedido` | Último pedido confirmado |
 
-### Advanced Configuration
+Para reiniciar la aplicación a su estado inicial, borra esas claves desde las herramientas del navegador (Application → Local Storage).
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## Pruebas
 
-### Deployment
+```bash
+npx vitest run
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+Hay 165 pruebas en 13 archivos dentro de `src/test/`:
 
-### `npm run build` fails to minify
+- **Lógica** (`carrito`, `validaciones`, `productos` y regiones, `usuarios`, `pedidos` y pagos): funciones puras, sin renderizar.
+- **Componentes y vistas** (`Precio`, `BotonAgregar`, `TarjetaProducto`, `CampoFormulario`, `PagoFallido`, `ConfirmacionPedido`, `Header`, `Productos`): renderizado, renderizado condicional, props, estado y eventos.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+`src/test/setup.js` carga las extensiones de jest-dom y limpia el DOM después de cada prueba. Los componentes que usan enlaces se prueban dentro de `MemoryRouter`.
+
+## Cómo probar el flujo completo
+
+1. Entra a `/registro`, crea una cuenta (correo `@gmail.com`, `@duoc.cl` o `@profesor.duoc.cl`, contraseña de 4 a 10 caracteres). Quedas con la sesión iniciada.
+2. Agrega productos desde el catálogo, el detalle o el inicio y revisa el carrito.
+3. Pulsa **Ir a pagar**: el formulario parte con tus datos.
+4. Para ver la pantalla de pago fallido, marca **Simular pago rechazado** antes de confirmar. Con **Reintentar pago** vuelves al formulario con los datos intactos.
+
+## Limitaciones conocidas
+
+- **Prototipo sin backend:** el pago es simulado y no se realiza ningún cobro.
+- **Contraseñas en texto plano** en `localStorage`. Es aceptable solo para este prototipo; un sistema real las gestiona el servidor con un hash.
+- La casilla *Simular pago rechazado* existe solo para demostrar y probar el flujo de fallo; debe retirarse cuando haya un backend de pagos.
+- El panel de administración no está migrado a React; el CRUD de `productos.js` existe, pero sin interfaz ni persistencia (los cambios se pierden al recargar).
+- `Checkout` y `Contacto` aún no usan el hook `useFormulario` (está marcado en el código).
+- El menú móvil no se cierra solo al navegar a otra página.
+
+## Autores
+
+Vicente Cuevas y Benjamín López.
