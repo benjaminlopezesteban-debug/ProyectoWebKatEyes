@@ -122,6 +122,41 @@ h1, h2, h3, h4, h5, h6 {
     color: #111111;
 }
 
+/* ---------- Menú "Categorías": flecha animada y apertura con el cursor ---------- */
+
+/* La flecha (▾) de Bootstrap es el ::after del enlace. Gira hacia arriba
+   cuando el menú está abierto, también al abrirlo con clic o con el teclado. */
+.navbar .dropdown-toggle::after {
+    transition: transform 0.2s ease;
+}
+
+.navbar .dropdown-toggle.show::after {
+    transform: rotate(180deg);
+}
+
+/* En escritorio con mouse el menú se abre al pasar el cursor.
+   - min-width: 992px  → desde el punto en que el navbar deja de ser colapsable (lg)
+   - hover: hover      → solo dispositivos con cursor real; en pantallas táctiles
+                         se mantiene el clic, porque ahí no existe "pasar el cursor"
+   - margin-top: 0     → quita el espacio de 2px entre el enlace y el menú; sin eso,
+                         al bajar el cursor el menú se cerraría a mitad de camino. */
+@media (min-width: 992px) and (hover: hover) {
+    .navbar .dropdown:hover > .dropdown-menu {
+        display: block;
+        margin-top: 0;
+    }
+
+    .navbar .dropdown:hover > .dropdown-toggle::after {
+        transform: rotate(180deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .navbar .dropdown-toggle::after {
+        transition: none;
+    }
+}
+
 /* ---------- Hero / Bienvenida Inicio ---------- */
 .hero-bienvenida {
     background-color: #E4C3A9;

@@ -4,9 +4,11 @@ import { useCarrito } from "../context/CarritoContext";
 import { useSesion } from "../context/SesionContext";
 import { validarCampoCheckout, validarCheckout } from "../validaciones";
 import { crearPedido } from "../pedidos";
+import { procesarPago } from "../pagos";
 import CampoFormulario from "../components/CampoFormulario";
 import ResumenPedido from "../components/ResumenPedido";
 import ConfirmacionPedido from "../components/ConfirmacionPedido";
+import PagoFallido from "../components/PagoFallido";
 
 const DATOS_INICIALES = { nombre: "", correo: "", telefono: "", direccion: "", comuna: "" };
 
@@ -33,6 +35,7 @@ const METODOS_PAGO = [
    con "hidden". Ahora la vista decide cuál dibujar según su estado:
 
      pedido ya creado        → confirmación
+     pago rechazado          → pantalla de pago fallido (los datos del formulario se conservan)
      carrito vacío           → aviso
      en cualquier otro caso  → resumen + formulario */
 function Checkout() {
@@ -45,6 +48,8 @@ function Checkout() {
     const [errores, setErrores] = useState({}); // { correo: "Ingresa un correo válido." }
     const [pago, setPago] = useState("Tarjeta");
     const [pedido, setPedido] = useState(null); // null hasta que se confirma la compra
+    const [pagoFallido, setPagoFallido] = useState(null); // null o { codigo, motivo }
+    const [simularFallo, setSimularFallo] = useState(false); // interruptor de demostración
 
     /* >>> PENDIENTE: MIGRAR A useFormulario (src/hooks/useFormulario.js) <<<
        Los estados "datos" y "errores" de arriba y las funciones manejarCambio,
@@ -88,6 +93,15 @@ function Checkout() {
         }
         if (lineas.length === 0) return;
 
+        /* El pago se procesa ANTES de crear el pedido. Si es rechazado no se guarda
+           ningún pedido, el carrito no se toca y el formulario conserva lo escrito. */
+        const resultadoPago = procesarPago({ metodo: pago, total, forzarFallo: simularFallo });
+        if (!resultadoPago.ok) {
+            setPagoFallido(resultadoPago);
+            window.scrollTo(0, 0);
+            return;
+        }
+
         const cliente = {
             nombre: datos.nombre.trim(),
             correo: datos.correo.trim(),
@@ -102,6 +116,13 @@ function Checkout() {
         window.scrollTo(0, 0);
     }
 
+    // Volver al formulario: los datos siguen en el estado, no hay que escribirlos de nuevo.
+    // Se apaga el interruptor para que el reintento pueda resultar exitoso.
+    function reintentarPago() {
+        setPagoFallido(null);
+        setSimularFallo(false);
+    }
+
     /* ---------- Qué pantalla mostrar ---------- */
     // La confirmación va primero: al vaciar el carrito, "lineas" queda vacío
     // y, sin este orden, aparecería el aviso de carrito vacío en su lugar.
@@ -109,6 +130,14 @@ function Checkout() {
         return (
             <div className="container my-5">
                 <ConfirmacionPedido pedido={pedido} />
+            </div>
+        );
+    }
+
+    if (pagoFallido) {
+        return (
+            <div className="container my-5">
+                <PagoFallido resultado={pagoFallido} onReintentar={reintentarPago} />
             </div>
         );
     }
@@ -201,6 +230,22 @@ function Checkout() {
                                 </div>
                             ))}
                             <div className="form-text">Prototipo: no se realiza ningún cobro real.</div>
+
+                            {/* Solo para demostrar y probar el flujo de pago fallido:
+                                sin un banco real no hay otra forma de provocar un rechazo.
+                                Se elimina cuando exista un backend de pagos. */}
+                            <div className="form-check mt-3">
+                                <input
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    id="simular-fallo"
+                                    checked={simularFallo}
+                                    onChange={e => setSimularFallo(e.target.checked)}
+                                />
+                                <label className="form-check-label text-muted" htmlFor="simular-fallo">
+                                    Simular pago rechazado (solo prueba del prototipo)
+                                </label>
+                            </div>
                         </fieldset>
 
                         <button type="submit" className="btn btn-primary btn-lg w-100">
