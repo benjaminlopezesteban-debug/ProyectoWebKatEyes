@@ -66,7 +66,7 @@ function PanelCarrito() {
                                         type="button"
                                         className="btn btn-sm btn-outline-secondary"
                                         aria-label={`Agregar una unidad de ${l.nombre}`}
-                                        disabled={l.cantidad >= MAX_UNIDADES_POR_PRODUCTO}
+                                        disabled={l.cantidad >= (l.max ?? MAX_UNIDADES_POR_PRODUCTO)}
                                         onClick={() => cambiarCantidad(l.id, 1)}
                                     >
                                         +

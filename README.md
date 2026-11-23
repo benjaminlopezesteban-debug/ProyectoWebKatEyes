@@ -68,25 +68,20 @@ src/
 ├── App.jsx                  Layout común y mapa de rutas
 ├── index.css                Estilos globales
 │
-├── productos.js             Catálogo y CRUD en memoria
-├── blogs.js                 Entradas del blog
-├── regiones.js              Regiones y comunas
 ├── carrito.js               Reglas del carrito (funciones puras)
 ├── validaciones.js          Reglas de validación de formularios
-├── usuarios.js              Usuarios simulados (registro y autenticación)
-├── pedidos.js               Creación del pedido confirmado
-├── pagos.js                 Simulación de la pasarela de pago
 │
-├── utils/                   formatearPrecio.js, imagenes.js
+├── api/                     Cliente Axios y endpoints (productos, auth, checkout, pagos)
+├── utils/                   formatearPrecio.js, imagenes.js, producto.js
 ├── context/                 CarritoContext/Provider, SesionContext/Provider
-├── hooks/                   useFormulario.js
+├── hooks/                   useApi.js, useFormulario.js
 ├── components/              Header, Footer, PanelCarrito, TarjetaProducto, CampoFormulario, ...
 ├── views/                   Una vista por página
 ├── assets/                  Imágenes de productos, blogs y logo
 └── test/                    Pruebas unitarias y setup.js
 ```
 
-Los archivos de datos y reglas no dependen de React, por lo que se prueban directamente y podrían reutilizarse con un backend real. Las dependencias entre capas solo van hacia abajo: datos y reglas → utilidades → estado compartido → componentes → vistas.
+Las reglas del carrito y las validaciones no dependen de React y se prueban directamente. La capa `api/` habla con el backend Spring Boot; las vistas consumen endpoints y estados de carga/error.
 
 ## Rutas
 
@@ -105,14 +100,14 @@ Los archivos de datos y reglas no dependen de React, por lo que se prueban direc
 
 ## Imágenes
 
-Las imágenes están en `src/assets/` (en cualquier subcarpeta). `productos.js` y `blogs.js` guardan solo el **nombre del archivo** (por ejemplo `Base líquida mate.jpg`) y `resolverImagen()` obtiene la URL final. Si un nombre no coincide con ningún archivo, se muestra un recuadro gris "Sin imagen".
+Las imágenes de producto vienen del backend en `ProductoResponse.imagenUrl` y se resuelven con `urlAsset()`. Las imágenes de blog siguen en `src/assets/` y `EntradaBlogResponse.imagen` guarda solo el **nombre del archivo**; `resolverImagen()` obtiene la URL final. Si un nombre no coincide, se muestra un recuadro gris "Sin imagen".
 
 ## Datos y persistencia
 
 | Clave en `localStorage` | Contenido |
 |---|---|
-| `kateye_carrito` | Productos y cantidades del carrito |
-| `kateye_sesion` | Id del usuario con sesión iniciada |
+| `kateye_carrito_v2` | Productos y cantidades del carrito (migra desde `kateye_carrito`) |
+| `kateye_token` | JWT de la sesión actual |
 | `kateye_usuarios` | Usuarios registrados |
 | `kateye_ultimo_pedido` | Último pedido confirmado |
 
@@ -140,11 +135,11 @@ Hay 165 pruebas en 13 archivos dentro de `src/test/`:
 
 ## Limitaciones conocidas
 
-- **Prototipo sin backend:** el pago es simulado y no se realiza ningún cobro.
-- **Contraseñas en texto plano** en `localStorage`. Es aceptable solo para este prototipo; un sistema real las gestiona el servidor con un hash.
-- La casilla *Simular pago rechazado* existe solo para demostrar y probar el flujo de fallo; debe retirarse cuando haya un backend de pagos.
-- El panel de administración no está migrado a React; el CRUD de `productos.js` existe, pero sin interfaz ni persistencia (los cambios se pierden al recargar).
-- `Checkout` y `Contacto` aún no usan el hook `useFormulario` (está marcado en el código).
+- El pago es simulado en el backend (`KATEYE_PAGO_SIMULADO_RESULTADO`); no hay pasarela real.
+- Solo 4 productos tienen imagen real; el resto usa `onError` y el placeholder.
+- `Contacto` mantiene su formulario manual en lugar de `useFormulario`.
+- OpenAPI aún no se genera; la matriz de `docs/api-integracion.md` es la referencia.
+- El panel de administración no está migrado a React.
 - El menú móvil no se cierra solo al navegar a otra página.
 
 ## Autores

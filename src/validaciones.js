@@ -20,7 +20,8 @@ export const reglasCheckout = {
         : !REGEX_TELEFONO.test(v) ? "Ingresa un celular chileno válido."
         : "",
     direccion: v => (!v ? "Ingresa tu dirección." : ""),
-    comuna: v => (!v ? "Ingresa tu comuna." : ""),
+    regionCodigo: v => (!v ? "Debes seleccionar una región." : ""),
+    comunaCodigo: v => (!v ? "Debes seleccionar una comuna." : ""),
 };
 
 /* Valida UN campo (se usa al salir del campo y mientras se corrige) */

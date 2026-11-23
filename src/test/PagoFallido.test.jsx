@@ -1,53 +1,66 @@
-import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
-import { MemoryRouter } from "react-router-dom"
-import { describe, expect, it, vi } from "vitest"
-import PagoFallido from "../components/PagoFallido"
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
+import { describe, expect, it, vi } from "vitest";
+import PagoFallido from "../components/PagoFallido";
 
-const resultado = { codigo: "PAGO-RECHAZADO", motivo: "Tu banco rechazó la transacción." }
+const resultado = {
+  numero: "KE-123456",
+  codigo: "05",
+  motivo: "Pago rechazado por simulacion",
+};
 
 function renderizarPagoFallido(onReintentar = () => {}) {
-    render(
-        <MemoryRouter>
-            <PagoFallido resultado={resultado} onReintentar={onReintentar} />
-        </MemoryRouter>
-    )
+  render(
+    <MemoryRouter>
+      <PagoFallido resultado={resultado} onReintentar={onReintentar} />
+    </MemoryRouter>,
+  );
 }
 
 describe("PagoFallido", () => {
-    it("Avisa que no se pudo realizar el pago como alerta", () => {
-        renderizarPagoFallido()
+  it("Avisa que no se pudo realizar el pago como alerta", () => {
+    renderizarPagoFallido();
 
-        expect(screen.getByRole("alert")).toBeInTheDocument();
-        expect(screen.getByRole("heading", { name: "No se pudo realizar el pago" })).toBeInTheDocument();
-    })
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "No se pudo realizar el pago" }),
+    ).toBeInTheDocument();
+  });
 
-    it("Muestra el motivo y el código recibidos", () => {
-        renderizarPagoFallido()
+  it("Muestra el motivo y el código recibidos", () => {
+    renderizarPagoFallido();
 
-        expect(screen.getByText("Tu banco rechazó la transacción.")).toBeInTheDocument();
-        expect(screen.getByText("PAGO-RECHAZADO")).toBeInTheDocument();
-    })
+    expect(
+      screen.getByText("Pago rechazado por simulacion"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("05")).toBeInTheDocument();
+  });
 
-    it("Tranquiliza al usuario: no hubo cobro y el carrito sigue intacto", () => {
-        renderizarPagoFallido()
+  it("Indica que el pedido quedó registrado y no hubo cobro", () => {
+    renderizarPagoFallido();
 
-        expect(screen.getByText(/No se realizó ningún cobro/)).toBeInTheDocument();
-    })
+    expect(screen.getByText(/No se realizó ningún cobro/)).toBeInTheDocument();
+    expect(screen.getByText("KE-123456")).toBeInTheDocument();
+  });
 
-    it("Ejecuta onReintentar al pulsar Reintentar pago", async () => {
-        const usuario = userEvent.setup()
-        const onReintentar = vi.fn()
+  it("Ejecuta onReintentar al pulsar Reintentar pago", async () => {
+    const usuario = userEvent.setup();
+    const onReintentar = vi.fn();
 
-        renderizarPagoFallido(onReintentar)
-        await usuario.click(screen.getByRole("button", { name: "Reintentar pago" }))
+    renderizarPagoFallido(onReintentar);
+    await usuario.click(
+      screen.getByRole("button", { name: "Reintentar pago" }),
+    );
 
-        expect(onReintentar).toHaveBeenCalledTimes(1);
-    })
+    expect(onReintentar).toHaveBeenCalledTimes(1);
+  });
 
-    it("Ofrece seguir comprando con un enlace al catálogo", () => {
-        renderizarPagoFallido()
+  it("Ofrece seguir comprando con un enlace al catálogo", () => {
+    renderizarPagoFallido();
 
-        expect(screen.getByRole("link", { name: "Seguir comprando" })).toHaveAttribute("href", "/productos");
-    })
-})
+    expect(
+      screen.getByRole("link", { name: "Seguir comprando" }),
+    ).toHaveAttribute("href", "/productos");
+  });
+});

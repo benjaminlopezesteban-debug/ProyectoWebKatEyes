@@ -5,6 +5,8 @@ import { formatearPrecio } from "../utils/formatearPrecio";
    los datos salen de él y no del carrito, porque a esta altura el carrito
    ya está vacío. */
 function ConfirmacionPedido({ pedido }) {
+    const correo = pedido.cliente?.correo ?? pedido.correo ?? "";
+
     return (
         <div className="text-center py-5" aria-live="polite">
             <i className="bi bi-check-circle-fill text-success display-3" aria-hidden="true"></i>
@@ -13,7 +15,7 @@ function ConfirmacionPedido({ pedido }) {
                 Tu pedido <strong>{pedido.numero}</strong> fue registrado.
             </p>
             <p className="text-muted">
-                Total: {formatearPrecio(pedido.total)}. Enviaremos el detalle a {pedido.cliente.correo}.
+                Total: {formatearPrecio(pedido.total)}. Enviaremos el detalle a {correo}.
             </p>
             <Link to="/" className="btn btn-primary mt-3">Volver al inicio</Link>
         </div>

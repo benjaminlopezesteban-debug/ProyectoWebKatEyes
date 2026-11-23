@@ -3,17 +3,18 @@ import { Link, useParams } from "react-router-dom";
 import { obtenerProducto, listarRelacionados } from "../api/endpoints/productos";
 import { useCarrito } from "../context/CarritoContext";
 import { useApi } from "../hooks/useApi";
-import { MAX_UNIDADES_POR_PRODUCTO } from "../carrito";
+import { MAX_UNIDADES_POR_PRODUCTO, maximoProducto } from "../carrito";
 import { formatearPrecio } from "../utils/formatearPrecio";
 import { IMG_PLACEHOLDER, resolverImagenProducto } from "../utils/imagenes";
 import { nombreCategoria, precioVigente } from "../utils/producto";
 import Precio from "../components/Precio";
 import TarjetaRelacionada from "../components/TarjetaRelacionada";
 
-const limitar = (numero) => Math.min(MAX_UNIDADES_POR_PRODUCTO, Math.max(1, numero));
+const limitar = (numero, maximo) => Math.min(maximo, Math.max(1, numero));
 
 function Detalle({ producto }) {
     const { agregarAlCarrito } = useCarrito();
+    const maximo = maximoProducto(producto) || MAX_UNIDADES_POR_PRODUCTO;
     const [cantidad, setCantidad] = useState(1);
     const [agregadas, setAgregadas] = useState(null);
 
@@ -25,7 +26,7 @@ function Detalle({ producto }) {
 
     function cambiarCantidadEscrita(evento) {
         const numero = parseInt(evento.target.value, 10);
-        setCantidad(limitar(Number.isNaN(numero) ? 1 : numero));
+        setCantidad(limitar(Number.isNaN(numero) ? 1 : numero, maximo));
     }
 
     function agregar() {
@@ -35,7 +36,7 @@ function Detalle({ producto }) {
     const textoBoton =
         agregadas === null ? "Añadir al carrito"
         : agregadas > 0 ? `✓ Añadido (${agregadas})`
-        : `Máximo ${MAX_UNIDADES_POR_PRODUCTO} por producto`;
+        : `Máximo ${maximo} por producto`;
 
     return (
         <div className="container my-5">
@@ -69,7 +70,7 @@ function Detalle({ producto }) {
                                     className="btn btn-outline-secondary"
                                     type="button"
                                     aria-label="Quitar una unidad"
-                                    onClick={() => setCantidad((valor) => limitar(valor - 1))}
+                                    onClick={() => setCantidad((valor) => limitar(valor - 1, maximo))}
                                 >
                                     −
                                 </button>
@@ -85,7 +86,7 @@ function Detalle({ producto }) {
                                     className="btn btn-outline-secondary"
                                     type="button"
                                     aria-label="Agregar una unidad"
-                                    onClick={() => setCantidad((valor) => limitar(valor + 1))}
+                                    onClick={() => setCantidad((valor) => limitar(valor + 1, maximo))}
                                 >
                                     +
                                 </button>

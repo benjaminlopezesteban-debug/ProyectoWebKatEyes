@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MAX_UNIDADES_POR_PRODUCTO } from "../carrito";
+import { MAX_UNIDADES_POR_PRODUCTO, maximoProducto } from "../carrito";
 
 /* Botón "Añadir al carrito" con su mensaje temporal ("✓ Añadido").
    Esta lógica estaba dentro de TarjetaProducto; ahora que la necesitan
@@ -26,9 +26,10 @@ function BotonAgregar({ producto, onAgregar, texto = "Añadir al carrito", class
         setResultado(agregadas > 0 ? "ok" : "maximo");
     }
 
+    const maximo = maximoProducto(producto) || MAX_UNIDADES_POR_PRODUCTO;
     const textoBoton =
         resultado === "ok" ? "✓ Añadido"
-        : resultado === "maximo" ? `Máx. ${MAX_UNIDADES_POR_PRODUCTO} unidades`
+        : resultado === "maximo" ? `Máx. ${maximo} unidades`
         : texto;
 
     return (

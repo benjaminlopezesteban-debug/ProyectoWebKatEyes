@@ -1,135 +1,233 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useCarrito } from "../context/CarritoContext";
 import { useSesion } from "../context/SesionContext";
 import { validarCampoCheckout, validarCheckout } from "../validaciones";
-import { crearPedido } from "../pedidos";
-import { procesarPago } from "../pagos";
+import { crearPedido } from "../api/endpoints/checkout";
+import { reintentarPago, simularPago } from "../api/endpoints/pagos";
+import { listarComunas, listarRegiones } from "../api/endpoints/regiones";
+import { useApi } from "../hooks/useApi";
 import CampoFormulario from "../components/CampoFormulario";
 import ResumenPedido from "../components/ResumenPedido";
 import ConfirmacionPedido from "../components/ConfirmacionPedido";
 import PagoFallido from "../components/PagoFallido";
 
-const DATOS_INICIALES = { nombre: "", correo: "", telefono: "", direccion: "", comuna: "" };
+const DATOS_INICIALES = {
+    nombre: "",
+    correo: "",
+    telefono: "",
+    direccion: "",
+    regionCodigo: "",
+    comunaCodigo: "",
+};
 
-/* Con sesión iniciada, el formulario parte con los datos del usuario
-   (la dirección no se pide al registrarse, así que la completa él). */
+const METODOS_PAGO = [
+    { valor: "TARJETA", etiqueta: "Tarjeta de crédito o débito" },
+    { valor: "TRANSFERENCIA", etiqueta: "Transferencia bancaria" },
+];
+
+function crearClaveIdempotencia() {
+    if (globalThis.crypto?.randomUUID) {
+        return globalThis.crypto.randomUUID();
+    }
+    return `kateye-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 function datosIniciales(usuario) {
     if (!usuario) return DATOS_INICIALES;
     return {
         ...DATOS_INICIALES,
-        nombre: usuario.nombre,
-        correo: usuario.correo,
-        telefono: usuario.telefono,
-        comuna: usuario.comunaNombre ?? usuario.comuna ?? "",
+        nombre: usuario.nombre ?? "",
+        correo: usuario.correo ?? "",
+        telefono: usuario.telefono ?? "",
+        regionCodigo: usuario.regionCodigo ?? "",
+        comunaCodigo: usuario.comunaCodigo ?? "",
     };
 }
 
-const METODOS_PAGO = [
-    { valor: "Tarjeta", etiqueta: "Tarjeta de crédito o débito" },
-    { valor: "Transferencia", etiqueta: "Transferencia bancaria" },
-];
-
-/* Antes: checkout.html + checkout.js, con tres bloques (#checkout-vacio,
-   #checkout-contenido, #checkout-confirmacion) que se mostraban u ocultaban
-   con "hidden". Ahora la vista decide cuál dibujar según su estado:
-
-     pedido ya creado        → confirmación
-     pago rechazado          → pantalla de pago fallido (los datos del formulario se conservan)
-     carrito vacío           → aviso
-     en cualquier otro caso  → resumen + formulario */
 function Checkout() {
-    const { lineas, total, ahorro, vaciarCarrito } = useCarrito();
+    const { lineas, total, ahorro, cargando, error: errorCarrito, vaciarCarrito } = useCarrito();
     const { usuario } = useSesion();
 
-    // Estado del formulario (todos los hooks van ANTES de cualquier return)
-    // La función dentro de useState se ejecuta una sola vez, al abrir el checkout
     const [datos, setDatos] = useState(() => datosIniciales(usuario));
-    const [errores, setErrores] = useState({}); // { correo: "Ingresa un correo válido." }
-    const [pago, setPago] = useState("Tarjeta");
-    const [pedido, setPedido] = useState(null); // null hasta que se confirma la compra
-    const [pagoFallido, setPagoFallido] = useState(null); // null o { codigo, motivo }
-    const [simularFallo, setSimularFallo] = useState(false); // interruptor de demostración
+    const [errores, setErrores] = useState({});
+    const [pago, setPago] = useState("TARJETA");
+    const [pedidoCreado, setPedidoCreado] = useState(null);
+    const [pagado, setPagado] = useState(null);
+    const [pagoFallido, setPagoFallido] = useState(null);
+    const [enviando, setEnviando] = useState(false);
+    const [errorGeneral, setErrorGeneral] = useState("");
 
-    /* >>> PENDIENTE: MIGRAR A useFormulario (src/hooks/useFormulario.js) <<<
-       Los estados "datos" y "errores" de arriba y las funciones manejarCambio,
-       manejarBlur y confirmarCompra (la parte de validar) de aquí abajo hacen lo
-       mismo que el hook:
-           const { datos, errores, manejarCambio, manejarBlur, manejarEnvio } =
-               useFormulario({ datosIniciales: datosIniciales(usuario),
-                               validarCampo: validarCampoCheckout,
-                               validarTodo: validarCheckout });
-           <form onSubmit={manejarEnvio(confirmarCompra)}>
-       Solo quedaría en confirmarCompra lo propio: crear el pedido y vaciar el carrito.
+    const checkoutKeyRef = useRef(crearClaveIdempotencia());
+    const pagoKeyRef = useRef(null);
+    const retryKeyRef = useRef(null);
 
-       Un solo manejador para todos los campos: usa el atributo "name" del input
-       como clave del dato. [name] entre corchetes = "usa el valor de la variable como clave". */
-    function manejarCambio(e) {
-        const { name, value } = e.target;
+    useEffect(() => {
+        if (!usuario) return;
+        setDatos(prev => ({
+            ...prev,
+            nombre: prev.nombre || usuario.nombre || "",
+            correo: prev.correo || usuario.correo || "",
+            telefono: prev.telefono || usuario.telefono || "",
+            regionCodigo: prev.regionCodigo || usuario.regionCodigo || "",
+            comunaCodigo: prev.comunaCodigo || usuario.comunaCodigo || "",
+        }));
+    }, [usuario]);
+
+    const firmaCarrito = lineas.map(linea => `${linea.id}:${linea.cantidad}`).join("|");
+
+    useEffect(() => {
+        checkoutKeyRef.current = crearClaveIdempotencia();
+        if (!pedidoCreado && !pagoFallido && !pagado) {
+            pagoKeyRef.current = null;
+            retryKeyRef.current = null;
+        }
+    }, [firmaCarrito, pedidoCreado, pagoFallido, pagado]);
+
+    const cargarRegiones = useCallback(() => listarRegiones(), []);
+    const { data: regiones } = useApi(cargarRegiones);
+    const cargarComunas = useCallback(
+        () => (datos.regionCodigo ? listarComunas(datos.regionCodigo) : Promise.resolve([])),
+        [datos.regionCodigo]
+    );
+    const { data: comunas } = useApi(cargarComunas);
+
+    function manejarCambio(evento) {
+        const { name, value } = evento.target;
         setDatos(prev => ({ ...prev, [name]: value }));
-        // Si el campo ya mostraba error, se revalida mientras el usuario corrige
         if (errores[name]) {
             setErrores(prev => ({ ...prev, [name]: validarCampoCheckout(name, value) }));
         }
     }
 
-    // Al salir del campo se valida
-    function manejarBlur(e) {
-        const { name, value } = e.target;
+    function manejarBlur(evento) {
+        const { name, value } = evento.target;
         setErrores(prev => ({ ...prev, [name]: validarCampoCheckout(name, value) }));
     }
 
-    function confirmarCompra(e) {
-        e.preventDefault();
+    function cambiarRegion(evento) {
+        manejarCambio(evento);
+        setDatos(prev => ({ ...prev, comunaCodigo: "" }));
+        setErrores(prev => ({ ...prev, comunaCodigo: "" }));
+    }
 
+    async function confirmarCompra(evento) {
+        evento.preventDefault();
         const nuevosErrores = validarCheckout(datos);
         setErrores(nuevosErrores);
 
-        // Si hay errores, el foco va al primer campo inválido y no se continúa
         const primerCampoInvalido = Object.keys(nuevosErrores)[0];
         if (primerCampoInvalido) {
-            e.currentTarget.elements[primerCampoInvalido].focus();
+            evento.currentTarget.elements[primerCampoInvalido].focus();
             return;
         }
         if (lineas.length === 0) return;
 
-        /* El pago se procesa ANTES de crear el pedido. Si es rechazado no se guarda
-           ningún pedido, el carrito no se toca y el formulario conserva lo escrito. */
-        const resultadoPago = procesarPago({ metodo: pago, total, forzarFallo: simularFallo });
-        if (!resultadoPago.ok) {
-            setPagoFallido(resultadoPago);
-            window.scrollTo(0, 0);
-            return;
+        setErrorGeneral("");
+        setEnviando(true);
+        let pedido = pedidoCreado;
+
+        try {
+            if (!pedido) {
+                pedido = await crearPedido({
+                    tipoEntrega: "DESPACHO",
+                    contactoNombre: datos.nombre.trim(),
+                    contactoCorreo: datos.correo.trim(),
+                    contactoTelefono: datos.telefono.trim(),
+                    direccion: datos.direccion.trim(),
+                    regionCodigo: datos.regionCodigo,
+                    comunaCodigo: datos.comunaCodigo,
+                    metodoPago: pago,
+                    items: lineas.map(linea => ({
+                        productoId: linea.id,
+                        cantidad: linea.cantidad,
+                    })),
+                }, checkoutKeyRef.current);
+
+                setPedidoCreado(pedido);
+                vaciarCarrito();
+            }
+
+            if (!pagoKeyRef.current) {
+                pagoKeyRef.current = crearClaveIdempotencia();
+            }
+
+            const resultado = await simularPago(pedido.pedidoId, pago, pagoKeyRef.current);
+
+            if (resultado.estado === "APROBADA") {
+                setPagado({
+                    numero: resultado.numeroPedido,
+                    total: resultado.monto,
+                    correo: datos.correo.trim(),
+                });
+                setPagoFallido(null);
+            } else {
+                retryKeyRef.current = crearClaveIdempotencia();
+                setPagoFallido({
+                    numero: resultado.numeroPedido,
+                    codigo: resultado.codigoRespuesta,
+                    motivo: resultado.motivo,
+                });
+            }
+        } catch (error) {
+            if (pedido) {
+                retryKeyRef.current = retryKeyRef.current ?? crearClaveIdempotencia();
+                setPagoFallido({
+                    numero: pedido.numero,
+                    codigo: "PAGO-NO-CONFIRMADO",
+                    motivo: error?.mensaje ?? "No se pudo confirmar el pago.",
+                });
+            } else {
+                setErrorGeneral(error?.mensaje ?? "No se pudo crear el pedido.");
+            }
+        } finally {
+            setEnviando(false);
         }
-
-        const cliente = {
-            nombre: datos.nombre.trim(),
-            correo: datos.correo.trim(),
-            telefono: datos.telefono.trim(),
-            direccion: datos.direccion.trim(),
-            comuna: datos.comuna.trim(),
-        };
-
-        const nuevoPedido = crearPedido({ cliente, pago, lineas, total });
-        vaciarCarrito();          // vacía el carrito (el contador baja a 0 en todos lados)
-        setPedido(nuevoPedido);   // muestra la confirmación
-        window.scrollTo(0, 0);
     }
 
-    // Volver al formulario: los datos siguen en el estado, no hay que escribirlos de nuevo.
-    // Se apaga el interruptor para que el reintento pueda resultar exitoso.
-    function reintentarPago() {
-        setPagoFallido(null);
-        setSimularFallo(false);
+    async function reintentar() {
+        if (!pagoFallido) return;
+
+        setErrorGeneral("");
+        setEnviando(true);
+
+        try {
+            if (!retryKeyRef.current) {
+                retryKeyRef.current = crearClaveIdempotencia();
+            }
+
+            const resultado = await reintentarPago(
+                pagoFallido.numero,
+                datos.correo.trim() || undefined,
+                retryKeyRef.current
+            );
+
+            if (resultado.estado === "APROBADA") {
+                setPagado({
+                    numero: resultado.numeroPedido,
+                    total: resultado.monto,
+                    correo: datos.correo.trim(),
+                });
+                setPagoFallido(null);
+            } else {
+                retryKeyRef.current = null;
+                setPagoFallido({
+                    numero: resultado.numeroPedido,
+                    codigo: resultado.codigoRespuesta,
+                    motivo: resultado.motivo,
+                });
+            }
+        } catch (error) {
+            setErrorGeneral(error?.mensaje ?? "No se pudo reintentar el pago.");
+        } finally {
+            setEnviando(false);
+        }
     }
 
-    /* ---------- Qué pantalla mostrar ---------- */
-    // La confirmación va primero: al vaciar el carrito, "lineas" queda vacío
-    // y, sin este orden, aparecería el aviso de carrito vacío en su lugar.
-    if (pedido) {
+    if (pagado) {
         return (
             <div className="container my-5">
-                <ConfirmacionPedido pedido={pedido} />
+                <ConfirmacionPedido pedido={pagado} />
             </div>
         );
     }
@@ -137,7 +235,20 @@ function Checkout() {
     if (pagoFallido) {
         return (
             <div className="container my-5">
-                <PagoFallido resultado={pagoFallido} onReintentar={reintentarPago} />
+                <PagoFallido
+                    resultado={pagoFallido}
+                    onReintentar={reintentar}
+                    reintentando={enviando}
+                    error={errorGeneral}
+                />
+            </div>
+        );
+    }
+
+    if (cargando) {
+        return (
+            <div className="container my-5">
+                <div className="alert alert-info">Cargando carrito...</div>
             </div>
         );
     }
@@ -160,15 +271,23 @@ function Checkout() {
             <h1 className="mb-4">Finalizar compra</h1>
 
             <div className="row g-4">
-                {/* Resumen del pedido (en pantallas grandes va a la derecha) */}
                 <section className="col-lg-5 order-lg-2" aria-labelledby="titulo-resumen">
                     <ResumenPedido lineas={lineas} total={total} ahorro={ahorro} />
                 </section>
 
-                {/* Formulario */}
                 <section className="col-lg-7 order-lg-1" aria-labelledby="titulo-datos">
                     <form onSubmit={confirmarCompra} noValidate>
                         <h2 id="titulo-datos" className="h5 mb-3">Datos de contacto y envío</h2>
+
+                        {errorCarrito && (
+                            <div className="alert alert-warning">
+                                No se pudo actualizar el carrito con el catálogo: {errorCarrito.mensaje}
+                            </div>
+                        )}
+
+                        {errorGeneral && (
+                            <div className="alert alert-danger" role="alert">{errorGeneral}</div>
+                        )}
 
                         <CampoFormulario
                             id="co-nombre" nombre="nombre" etiqueta="Nombre completo"
@@ -194,62 +313,61 @@ function Checkout() {
                             />
                         </div>
 
+                        <CampoFormulario
+                            id="co-direccion" nombre="direccion" etiqueta="Dirección"
+                            valor={datos.direccion} error={errores.direccion}
+                            onChange={manejarCambio} onBlur={manejarBlur}
+                            maxLength={150} autoComplete="street-address"
+                        />
+
                         <div className="row">
                             <CampoFormulario
-                                id="co-direccion" nombre="direccion" etiqueta="Dirección"
-                                clase="col-md-8 mb-3"
-                                valor={datos.direccion} error={errores.direccion}
-                                onChange={manejarCambio} onBlur={manejarBlur}
-                                maxLength={150} autoComplete="street-address"
-                            />
+                                id="co-region" nombre="regionCodigo" etiqueta="Región" tipo="select"
+                                clase="col-md-6 mb-3"
+                                valor={datos.regionCodigo} error={errores.regionCodigo}
+                                onChange={cambiarRegion} onBlur={manejarBlur}
+                            >
+                                <option value="">Selecciona una región...</option>
+                                {regiones?.map(region => (
+                                    <option key={region.codigo} value={region.codigo}>{region.nombre}</option>
+                                ))}
+                            </CampoFormulario>
                             <CampoFormulario
-                                id="co-comuna" nombre="comuna" etiqueta="Comuna"
-                                clase="col-md-4 mb-3"
-                                valor={datos.comuna} error={errores.comuna}
+                                id="co-comuna" nombre="comunaCodigo" etiqueta="Comuna" tipo="select"
+                                clase="col-md-6 mb-3"
+                                valor={datos.comunaCodigo} error={errores.comunaCodigo}
                                 onChange={manejarCambio} onBlur={manejarBlur}
-                                maxLength={60}
-                            />
+                                disabled={!datos.regionCodigo}
+                            >
+                                <option value="">Selecciona una comuna...</option>
+                                {comunas?.map(comuna => (
+                                    <option key={comuna.codigo} value={comuna.codigo}>{comuna.nombre}</option>
+                                ))}
+                            </CampoFormulario>
                         </div>
 
                         <fieldset className="mb-4">
                             <legend className="h6">Método de pago</legend>
-                            {METODOS_PAGO.map(m => (
-                                <div className="form-check" key={m.valor}>
+                            {METODOS_PAGO.map(metodo => (
+                                <div className="form-check" key={metodo.valor}>
                                     <input
                                         className="form-check-input"
                                         type="radio"
                                         name="pago"
-                                        id={`pago-${m.valor.toLowerCase()}`}
-                                        value={m.valor}
-                                        checked={pago === m.valor}
-                                        onChange={() => setPago(m.valor)}
+                                        id={`pago-${metodo.valor.toLowerCase()}`}
+                                        value={metodo.valor}
+                                        checked={pago === metodo.valor}
+                                        onChange={() => setPago(metodo.valor)}
                                     />
-                                    <label className="form-check-label" htmlFor={`pago-${m.valor.toLowerCase()}`}>
-                                        {m.etiqueta}
+                                    <label className="form-check-label" htmlFor={`pago-${metodo.valor.toLowerCase()}`}>
+                                        {metodo.etiqueta}
                                     </label>
                                 </div>
                             ))}
-                            <div className="form-text">Prototipo: no se realiza ningún cobro real.</div>
-
-                            {/* Solo para demostrar y probar el flujo de pago fallido:
-                                sin un banco real no hay otra forma de provocar un rechazo.
-                                Se elimina cuando exista un backend de pagos. */}
-                            <div className="form-check mt-3">
-                                <input
-                                    className="form-check-input"
-                                    type="checkbox"
-                                    id="simular-fallo"
-                                    checked={simularFallo}
-                                    onChange={e => setSimularFallo(e.target.checked)}
-                                />
-                                <label className="form-check-label text-muted" htmlFor="simular-fallo">
-                                    Simular pago rechazado (solo prueba del prototipo)
-                                </label>
-                            </div>
                         </fieldset>
 
-                        <button type="submit" className="btn btn-primary btn-lg w-100">
-                            Confirmar compra
+                        <button type="submit" className="btn btn-primary btn-lg w-100" disabled={enviando}>
+                            {enviando ? "Procesando..." : "Confirmar compra"}
                         </button>
                     </form>
                 </section>

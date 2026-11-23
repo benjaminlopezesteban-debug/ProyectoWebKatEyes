@@ -228,7 +228,7 @@ describe("Productos", () => {
       screen.getAllByRole("button", { name: "Añadir al carrito" })[0],
     );
 
-    const guardado = JSON.parse(localStorage.getItem("kateye_carrito"));
+    const guardado = JSON.parse(localStorage.getItem("kateye_carrito_v2"));
     expect(guardado).toHaveLength(1);
     expect(guardado[0].id).toBe(1);
     expect(guardado[0].cantidad).toBe(1);
