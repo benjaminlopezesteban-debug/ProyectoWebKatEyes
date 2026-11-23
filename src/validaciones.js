@@ -45,6 +45,7 @@ export function validarCheckout(datos) {
    ========================================================== */
 
 export const DOMINIOS_PERMITIDOS = ["duoc.cl", "profesor.duoc.cl", "gmail.com"];
+export const DOMINIOS_LOGIN = [...DOMINIOS_PERMITIDOS, "kateye.cl"];
 
 export const LIMITES = {
     correoMax: 100,
@@ -56,7 +57,7 @@ export const LIMITES = {
 
 /* "requerido = false" permite dejarlo vacío (en contacto el correo es opcional),
    pero si se escribe algo, igual se valida. */
-export function validarCorreo(valor, requerido = true) {
+export function validarCorreo(valor, requerido = true, dominios = DOMINIOS_PERMITIDOS) {
     const v = valor.trim();
     if (v === "") return requerido ? "El correo es obligatorio." : "";
     if (v.length > LIMITES.correoMax) {
@@ -66,7 +67,7 @@ export function validarCorreo(valor, requerido = true) {
         return "Ingresa un correo válido (ej: nombre@gmail.com).";
     }
     const dominio = v.split("@")[1].toLowerCase();
-    if (!DOMINIOS_PERMITIDOS.includes(dominio)) {
+    if (!dominios.includes(dominio)) {
         return "Solo se permiten correos @duoc.cl, @profesor.duoc.cl o @gmail.com.";
     }
     return "";
@@ -125,7 +126,7 @@ function validarConReglas(reglas, datos) {
 
 /* ---------- Login ---------- */
 export const reglasLogin = {
-    correo: v => validarCorreo(v, true),
+    correo: v => validarCorreo(v, true, DOMINIOS_LOGIN),
     password: v => validarPassword(v),
 };
 export const validarCampoLogin = (campo, valor, datos) => reglasLogin[campo](valor, datos);
@@ -134,7 +135,7 @@ export const validarLogin = datos => validarConReglas(reglasLogin, datos);
 /* ---------- Registro ---------- (el teléfono es opcional y no tiene regla) */
 export const reglasRegistro = {
     nombre: v => validarTextoRequerido(v, LIMITES.nombreMax, "El nombre completo"),
-    correo: v => validarCorreo(v, true),
+    correo: v => validarCorreo(v, true, DOMINIOS_LOGIN),
     password: v => validarPassword(v),
     confirmPassword: (v, datos) => (v !== datos.password ? "Las contraseñas no coinciden." : ""),
     regionCodigo: v => (v ? "" : "Debes seleccionar una región."),

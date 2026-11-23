@@ -35,6 +35,9 @@ describe("validaciones de sesión y contacto", () => {
       {},
     );
     expect(
+      validarLogin({ correo: "admin@kateye.cl", password: "1234" }),
+    ).toEqual({});
+    expect(
       validarLogin({ correo: "ana@hotmail.com", password: "1234" }),
     ).toHaveProperty("correo");
   });
