@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { api, TOKEN_KEY } from "../api/client";
 import { server } from "./mocks/server";
@@ -38,6 +38,8 @@ describe("client HTTP", () => {
       ),
     );
 
+    const alExpirar = vi.fn();
+    window.addEventListener("kateye:sesion-expirada", alExpirar);
     localStorage.setItem(TOKEN_KEY, "token-vencido");
 
     await expect(api.get("/perfil")).rejects.toMatchObject({
@@ -45,6 +47,8 @@ describe("client HTTP", () => {
       mensaje: "Token expirado",
     });
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+    expect(alExpirar).toHaveBeenCalledTimes(1);
+    window.removeEventListener("kateye:sesion-expirada", alExpirar);
   });
 
   it("devuelve los datos de una respuesta exitosa", async () => {

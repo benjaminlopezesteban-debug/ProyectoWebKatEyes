@@ -137,8 +137,8 @@ export const reglasRegistro = {
     correo: v => validarCorreo(v, true),
     password: v => validarPassword(v),
     confirmPassword: (v, datos) => (v !== datos.password ? "Las contraseñas no coinciden." : ""),
-    region: v => (v ? "" : "Debes seleccionar una región."),
-    comuna: v => (v ? "" : "Debes seleccionar una comuna."),
+    regionCodigo: v => (v ? "" : "Debes seleccionar una región."),
+    comunaCodigo: v => (v ? "" : "Debes seleccionar una comuna."),
 };
 export const validarCampoRegistro = (campo, valor, datos) => {
     // El teléfono no tiene regla: se acepta cualquier valor

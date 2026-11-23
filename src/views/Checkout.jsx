@@ -21,7 +21,7 @@ function datosIniciales(usuario) {
         nombre: usuario.nombre,
         correo: usuario.correo,
         telefono: usuario.telefono,
-        comuna: usuario.comuna,
+        comuna: usuario.comunaNombre ?? usuario.comuna ?? "",
     };
 }
 

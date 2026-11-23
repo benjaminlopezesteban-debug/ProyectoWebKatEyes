@@ -20,6 +20,7 @@ export function crearCliente(baseURL, opciones = {}) {
     (error) => {
       if (error?.response?.status === 401) {
         localStorage.removeItem(TOKEN_KEY);
+        window.dispatchEvent(new Event("kateye:sesion-expirada"));
       }
       return Promise.reject(normalizarError(error));
     },

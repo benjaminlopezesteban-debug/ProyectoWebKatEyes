@@ -3,36 +3,34 @@ import { Link, useNavigate } from "react-router-dom";
 import { useFormulario } from "../hooks/useFormulario";
 import { useSesion } from "../context/SesionContext";
 import { validarCampoLogin, validarLogin } from "../validaciones";
-import { autenticar } from "../usuarios";
 import CampoFormulario from "../components/CampoFormulario";
 
 const DATOS_INICIALES = { correo: "", password: "" };
 
-/* Antes: iniciarSesion.html + la parte de login de validaciones.js, que solo
-   mostraba "Datos válidos (aún no hay servidor)". Ahora comprueba contra los
-   usuarios registrados (usuarios.js) y guarda la sesión. */
 function IniciarSesion() {
     const navigate = useNavigate();
     const { iniciarSesion } = useSesion();
-    const [errorGeneral, setErrorGeneral] = useState(""); // credenciales incorrectas
+    const [errorGeneral, setErrorGeneral] = useState("");
+    const [enviando, setEnviando] = useState(false);
 
-    // >>> USO DEL HOOK useFormulario: reemplaza los ~25 líneas de manejadores copiados
     const { datos, errores, manejarCambio, manejarBlur, manejarEnvio } = useFormulario({
         datosIniciales: DATOS_INICIALES,
         validarCampo: validarCampoLogin,
         validarTodo: validarLogin,
     });
 
-    // Lo único propio de este formulario: qué hacer cuando los datos ya son válidos
-    function procesar(datosValidos) {
+    async function procesar(datosValidos) {
         setErrorGeneral("");
-        const usuario = autenticar(datosValidos.correo, datosValidos.password);
-        if (!usuario) {
-            setErrorGeneral("Correo o contraseña incorrectos.");
-            return;
+        setEnviando(true);
+
+        try {
+            await iniciarSesion(datosValidos.correo, datosValidos.password);
+            navigate("/");
+        } catch (error) {
+            setErrorGeneral(error?.mensaje ?? "Correo o contraseña incorrectos.");
+        } finally {
+            setEnviando(false);
         }
-        iniciarSesion(usuario);
-        navigate("/");
     }
 
     return (
@@ -59,8 +57,8 @@ function IniciarSesion() {
                                     autoComplete="current-password"
                                 />
 
-                                <button className="w-100 btn btn-lg btn-primary" type="submit">
-                                    Iniciar Sesión
+                                <button className="w-100 btn btn-lg btn-primary" type="submit" disabled={enviando}>
+                                    {enviando ? "Ingresando..." : "Iniciar Sesión"}
                                 </button>
                             </form>
 

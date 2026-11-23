@@ -1,6 +1,7 @@
 import { useState } from "react";
 import CampoFormulario from "../components/CampoFormulario";
 import { LIMITES, validarCampoContacto, validarContacto } from "../validaciones";
+import { enviarMensaje } from "../api/endpoints/contacto";
 
 const DATOS_INICIALES = { nombre: "", correo: "", contenido: "" };
 
@@ -11,6 +12,8 @@ function Contacto() {
     const [datos, setDatos] = useState(DATOS_INICIALES);
     const [errores, setErrores] = useState({});
     const [enviado, setEnviado] = useState(false); // muestra el aviso de éxito
+    const [enviando, setEnviando] = useState(false);
+    const [errorEnvio, setErrorEnvio] = useState("");
 
     /* >>> PENDIENTE: MIGRAR A useFormulario (src/hooks/useFormulario.js) <<<
        "datos", "errores", manejarCambio, manejarBlur y la validación de enviar()
@@ -34,9 +37,10 @@ function Contacto() {
         setErrores(prev => ({ ...prev, [name]: validarCampoContacto(name, value) }));
     }
 
-    function enviar(e) {
+    async function enviar(e) {
         e.preventDefault();
         setEnviado(false);
+        setErrorEnvio("");
 
         const nuevosErrores = validarContacto(datos);
         setErrores(nuevosErrores);
@@ -47,10 +51,22 @@ function Contacto() {
             return;
         }
 
-        // Sin servidor todavía: solo se confirma que los datos son válidos
-        setEnviado(true);
-        setDatos(DATOS_INICIALES); // limpia los campos (y, de paso, el contador)
-        setErrores({});
+        setEnviando(true);
+
+        try {
+            await enviarMensaje({
+                nombre: datos.nombre.trim(),
+                correo: datos.correo.trim(),
+                comentario: datos.contenido.trim(),
+            });
+            setEnviado(true);
+            setDatos(DATOS_INICIALES);
+            setErrores({});
+        } catch (error) {
+            setErrorEnvio(error?.mensaje ?? "No se pudo enviar el mensaje.");
+        } finally {
+            setEnviando(false);
+        }
     }
 
     // El contador es un dato derivado: se calcula del texto, no tiene estado propio
@@ -94,15 +110,21 @@ function Contacto() {
                                 />
 
                                 <div className="d-grid">
-                                    <button type="submit" className="btn btn-primary btn-lg">
-                                        Enviar Mensaje
+                                    <button type="submit" className="btn btn-primary btn-lg" disabled={enviando}>
+                                        {enviando ? "Enviando..." : "Enviar Mensaje"}
                                     </button>
                                 </div>
                             </form>
 
                             {enviado && (
                                 <div className="alert alert-success mt-4" role="status">
-                                    Tu mensaje fue validado correctamente.
+                                    Tu mensaje fue enviado correctamente.
+                                </div>
+                            )}
+
+                            {errorEnvio && (
+                                <div className="alert alert-danger mt-4" role="alert">
+                                    {errorEnvio}
                                 </div>
                             )}
                         </div>

@@ -1,44 +1,82 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { SesionContext } from "./SesionContext";
-import { obtenerUsuarioPorId } from "../usuarios";
-
-const CLAVE_SESION = "kateye_sesion";
-
-/* Al abrir la app se recupera la sesión guardada. Solo se guarda el ID:
-   los datos se leen de usuarios.js, así que si el usuario ya no existe
-   la sesión se descarta (igual que el carrito descarta productos inexistentes). */
-function leerSesionGuardada() {
-    try {
-        const id = JSON.parse(localStorage.getItem(CLAVE_SESION));
-        return id ? obtenerUsuarioPorId(id) : null;
-    } catch {
-        return null;
-    }
-}
+import { TOKEN_KEY } from "../api/client";
+import {
+    cerrarSesionApi,
+    iniciarSesionApi,
+    obtenerPerfil,
+    registrarUsuarioApi,
+} from "../api/endpoints/usuarios";
 
 function SesionProvider({ children }) {
-    const [usuario, setUsuario] = useState(leerSesionGuardada);
+    const [usuario, setUsuario] = useState(null);
+    const [cargando, setCargando] = useState(true);
 
-    function iniciarSesion(nuevoUsuario) {
-        setUsuario(nuevoUsuario);
-        try {
-            localStorage.setItem(CLAVE_SESION, JSON.stringify(nuevoUsuario.id));
-        } catch {
-            /* sin almacenamiento: la sesión dura hasta recargar */
+    useEffect(() => {
+        let activo = true;
+        const token = localStorage.getItem(TOKEN_KEY);
+
+        if (!token) {
+            setCargando(false);
+            return () => {
+                activo = false;
+            };
         }
-    }
 
-    function cerrarSesion() {
+        obtenerPerfil()
+            .then((perfil) => {
+                if (activo) setUsuario(perfil);
+            })
+            .catch((error) => {
+                if (error?.estado === 401) {
+                    localStorage.removeItem(TOKEN_KEY);
+                }
+                if (activo) setUsuario(null);
+            })
+            .finally(() => {
+                if (activo) setCargando(false);
+            });
+
+        return () => {
+            activo = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        function alExpirarSesion() {
+            setUsuario(null);
+        }
+
+        window.addEventListener("kateye:sesion-expirada", alExpirarSesion);
+        return () => window.removeEventListener("kateye:sesion-expirada", alExpirarSesion);
+    }, []);
+
+    const iniciarSesion = useCallback(async (correo, password) => {
+        const data = await iniciarSesionApi(correo, password);
+        localStorage.setItem(TOKEN_KEY, data.token);
+        setUsuario(data.usuario);
+        return data.usuario;
+    }, []);
+
+    const registrar = useCallback(async (datos) => {
+        const data = await registrarUsuarioApi(datos);
+        localStorage.setItem(TOKEN_KEY, data.token);
+        setUsuario(data.usuario);
+        return data.usuario;
+    }, []);
+
+    const cerrarSesion = useCallback(async () => {
+        try {
+            await cerrarSesionApi();
+        } catch {
+            /* la sesión local se cierra igual */
+        }
+        localStorage.removeItem(TOKEN_KEY);
         setUsuario(null);
-        try {
-            localStorage.removeItem(CLAVE_SESION);
-        } catch {
-            /* nada que hacer */
-        }
-    }
+    }, []);
 
     return (
-        <SesionContext.Provider value={{ usuario, iniciarSesion, cerrarSesion }}>
+        <SesionContext.Provider value={{ usuario, cargando, iniciarSesion, registrar, cerrarSesion }}>
             {children}
         </SesionContext.Provider>
     );

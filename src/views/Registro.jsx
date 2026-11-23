@@ -1,9 +1,8 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useFormulario } from "../hooks/useFormulario";
 import { useSesion } from "../context/SesionContext";
 import { validarCampoRegistro, validarRegistro } from "../validaciones";
-import { registrarUsuario } from "../usuarios";
 import { listarComunas, listarRegiones } from "../api/endpoints/regiones";
 import { useApi } from "../hooks/useApi";
 import CampoFormulario from "../components/CampoFormulario";
@@ -14,15 +13,17 @@ const DATOS_INICIALES = {
     password: "",
     confirmPassword: "",
     telefono: "",
-    region: "",
-    comuna: "",
+    regionCodigo: "",
+    comunaCodigo: "",
 };
 
 /* Antes: registroUsuario.html + validaciones.js. En tu HTML el select de comunas
    quedaba vacío (nunca se llenaba); ahora depende de la región elegida. */
 function Registro() {
     const navigate = useNavigate();
-    const { iniciarSesion } = useSesion();
+    const { registrar } = useSesion();
+    const [errorGeneral, setErrorGeneral] = useState("");
+    const [enviando, setEnviando] = useState(false);
 
     // >>> USO DEL HOOK useFormulario: aquí habría 7 campos con sus manejadores copiados
     const {
@@ -38,8 +39,8 @@ function Registro() {
     const cargarRegiones = useCallback(() => listarRegiones(), []);
     const { data: regiones } = useApi(cargarRegiones);
     const cargarComunas = useCallback(
-        () => (datos.region ? listarComunas(datos.region) : Promise.resolve([])),
-        [datos.region]
+        () => (datos.regionCodigo ? listarComunas(datos.regionCodigo) : Promise.resolve([])),
+        [datos.regionCodigo]
     );
     const { data: comunas } = useApi(cargarComunas);
 
@@ -48,29 +49,35 @@ function Registro() {
        manejarCambio para guardar la región y luego se limpia la comuna. */
     function cambiarRegion(e) {
         manejarCambio(e);
-        setDatos(prev => ({ ...prev, comuna: "" }));
-        setErrores(prev => ({ ...prev, comuna: "" }));
+        setDatos(prev => ({ ...prev, comunaCodigo: "" }));
+        setErrores(prev => ({ ...prev, comunaCodigo: "" }));
     }
 
     // Lo único propio de este formulario: qué hacer cuando los datos ya son válidos
-    function procesar(d) {
-        const resultado = registrarUsuario({
-            nombre: d.nombre.trim(),
-            correo: d.correo.trim(),
-            password: d.password,
-            telefono: d.telefono.trim(),
-            region: d.region,
-            comuna: d.comuna,
-        });
+    async function procesar(d) {
+        setErrorGeneral("");
+        setEnviando(true);
 
-        if (!resultado.ok) {
-            setErrores({ correo: "Este correo ya está registrado." });
-            document.getElementById("rg-correo")?.focus();
-            return;
+        try {
+            await registrar({
+                nombre: d.nombre.trim(),
+                correo: d.correo.trim(),
+                password: d.password,
+                telefono: d.telefono.trim(),
+                regionCodigo: d.regionCodigo,
+                comunaCodigo: d.comunaCodigo,
+            });
+            navigate("/");
+        } catch (error) {
+            if (error?.estado === 409) {
+                setErrores({ correo: error.mensaje ?? "Este correo ya está registrado." });
+                document.getElementById("rg-correo")?.focus();
+            } else {
+                setErrorGeneral(error?.mensaje ?? "No se pudo completar el registro.");
+            }
+        } finally {
+            setEnviando(false);
         }
-
-        iniciarSesion(resultado.usuario); // al registrarse queda con la sesión iniciada
-        navigate("/");
     }
 
     return (
@@ -123,9 +130,9 @@ function Registro() {
                                         autoComplete="tel"
                                     />
                                     <CampoFormulario
-                                        id="rg-region" nombre="region" etiqueta="Región" tipo="select"
+                                        id="rg-region" nombre="regionCodigo" etiqueta="Región" tipo="select"
                                         clase="col-md-6"
-                                        valor={datos.region} error={errores.region}
+                                        valor={datos.regionCodigo} error={errores.regionCodigo}
                                         onChange={cambiarRegion} onBlur={manejarBlur}
                                     >
                                         <option value="">Selecciona una región...</option>
@@ -134,11 +141,11 @@ function Registro() {
                                         ))}
                                     </CampoFormulario>
                                     <CampoFormulario
-                                        id="rg-comuna" nombre="comuna" etiqueta="Comuna" tipo="select"
+                                        id="rg-comuna" nombre="comunaCodigo" etiqueta="Comuna" tipo="select"
                                         clase="col-md-6"
-                                        valor={datos.comuna} error={errores.comuna}
+                                        valor={datos.comunaCodigo} error={errores.comunaCodigo}
                                         onChange={manejarCambio} onBlur={manejarBlur}
-                                        disabled={!datos.region}
+                                        disabled={!datos.regionCodigo}
                                     >
                                         <option value="">Selecciona una comuna...</option>
                                         {comunas?.map(c => (
@@ -149,9 +156,15 @@ function Registro() {
 
                                 <hr className="my-4" />
                                 <div className="d-grid">
-                                    <button type="submit" className="btn btn-primary btn-lg">Registrar</button>
+                                    <button type="submit" className="btn btn-primary btn-lg" disabled={enviando}>
+                                        {enviando ? "Registrando..." : "Registrar"}
+                                    </button>
                                 </div>
                             </form>
+
+                            {errorGeneral && (
+                                <div className="alert alert-danger mt-4" role="alert">{errorGeneral}</div>
+                            )}
 
                             <p className="text-center mt-3 mb-0">
                                 ¿Ya tienes una cuenta? <Link to="/iniciar-sesion">Inicia sesión</Link>
