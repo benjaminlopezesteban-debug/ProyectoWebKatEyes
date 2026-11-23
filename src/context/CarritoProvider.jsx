@@ -31,7 +31,7 @@ function CarritoProvider({ children }) {
     /* Devuelve cuántas unidades se agregaron (0 si ya estaba en el máximo),
        porque TarjetaProducto usa ese número para decir "✓ Añadido" o "Máximo alcanzado". */
     function agregarAlCarrito(producto, cantidad = 1) {
-        const { carrito: nuevo, agregadas } = agregarItem(carrito, producto.id, cantidad);
+        const { carrito: nuevo, agregadas } = agregarItem(carrito, producto.id, cantidad, producto);
         if (agregadas > 0) setCarrito(nuevo);
         return agregadas;
     }

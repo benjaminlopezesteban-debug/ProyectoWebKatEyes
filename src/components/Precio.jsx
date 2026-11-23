@@ -4,21 +4,22 @@ import { formatearPrecio } from "../utils/formatearPrecio";
    Ahora es un componente que devuelve JSX: ya no hay que armar texto con
    template strings ni preocuparse de escapar contenido. */
 function Precio({ producto, tamano = "h4" }) {
-    const { precio, precioAnterior } = producto;
+    const actual = producto.precioFinal ?? producto.precio;
+    const anterior = producto.precioOferta != null ? producto.precio : producto.precioAnterior;
 
     // Sin descuento: solo el precio
-    if (!precioAnterior || precioAnterior <= precio) {
-        return <span className={`${tamano} text-primary`}>{formatearPrecio(precio)}</span>;
+    if (!anterior || anterior <= actual) {
+        return <span className={`${tamano} text-primary`}>{formatearPrecio(actual)}</span>;
     }
 
     // Con descuento: precio tachado + precio actual + insignia con el %
-    const descuento = Math.round((1 - precio / precioAnterior) * 100);
+    const descuento = Math.round((1 - actual / anterior) * 100);
     return (
         <>
             <span className="text-muted text-decoration-line-through small">
-                {formatearPrecio(precioAnterior)}
+                {formatearPrecio(anterior)}
             </span>
-            <span className={`${tamano} text-danger ms-1`}>{formatearPrecio(precio)}</span>
+            <span className={`${tamano} text-danger ms-1`}>{formatearPrecio(actual)}</span>
             <span className="badge bg-danger ms-1">-{descuento}%</span>
         </>
     );

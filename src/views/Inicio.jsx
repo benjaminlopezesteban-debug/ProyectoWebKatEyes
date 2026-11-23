@@ -1,14 +1,15 @@
+import { useCallback } from "react";
 import { Link } from "react-router-dom";
-import { obtenerProductos } from "../productos";
+import { listarProductos } from "../api/endpoints/productos";
 import { useCarrito } from "../context/CarritoContext";
+import { useApi } from "../hooks/useApi";
 import FilaProducto from "../components/FilaProducto";
 import InfoBox from "../components/InfoBox";
 
-/* Antes: index.html + index.js. El modal de novedades (InfoBox) se muestra
-   aquí y no en App porque en tu versión HTML solo existía en la página de inicio. */
 function Inicio() {
     const { agregarAlCarrito } = useCarrito();
-    const productos = obtenerProductos();
+    const cargarProductos = useCallback(() => listarProductos(), []);
+    const { data: productos, loading, error } = useApi(cargarProductos);
 
     return (
         <>
@@ -35,11 +36,26 @@ function Inicio() {
             <section className="album py-5 bg-light">
                 <div className="container">
                     <h2 className="text-center mb-5">Nuestros Productos</h2>
-                    <div className="d-flex flex-column gap-3">
-                        {productos.map(p => (
-                            <FilaProducto key={p.id} producto={p} onAgregar={agregarAlCarrito} />
-                        ))}
-                    </div>
+
+                    {loading && <p className="text-center text-muted">Cargando productos...</p>}
+
+                    {error && (
+                        <div className="alert alert-danger" role="alert">
+                            No se pudo cargar el catálogo: {error.mensaje}
+                        </div>
+                    )}
+
+                    {!loading && !error && (
+                        <div className="d-flex flex-column gap-3">
+                            {productos?.map((producto) => (
+                                <FilaProducto
+                                    key={producto.id}
+                                    producto={producto}
+                                    onAgregar={agregarAlCarrito}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
             </section>
         </>

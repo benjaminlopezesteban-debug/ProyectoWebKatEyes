@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import Precio from "./Precio";
 import BotonAgregar from "./BotonAgregar";
-import { resolverImagen } from "../utils/imagenes";
+import { IMG_PLACEHOLDER, resolverImagenProducto } from "../utils/imagenes";
 
 /* Una tarjeta = un producto. Su única responsabilidad es mostrarlo; el
    botón de compra (con su estado y mensaje) vive en BotonAgregar.
@@ -15,10 +15,13 @@ function TarjetaProducto({ producto, onAgregar }) {
             <div className="card h-100 shadow-sm">
                 <Link to={`/productos/${producto.id}`} className="text-decoration-none text-dark">
                     <img
-                        src={resolverImagen(producto.imagenes[0])}
+                        src={resolverImagenProducto(producto)}
                         className="card-img-top"
                         alt={producto.nombre}
                         style={{ height: 250, objectFit: "cover" }}
+                        onError={(evento) => {
+                            evento.currentTarget.src = IMG_PLACEHOLDER;
+                        }}
                     />
                 </Link>
 

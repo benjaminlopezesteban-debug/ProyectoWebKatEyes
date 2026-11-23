@@ -17,8 +17,6 @@
    precio, imagen) se obtiene del catálogo con detallarCarrito(): así
    cumplimos la regla 5 de forma natural, porque ni siquiera se guarda. */
 
-import { obtenerProductoPorId } from "./productos";
-
 export const CLAVE_CARRITO = "kateye_carrito";
 export const MAX_UNIDADES_POR_PRODUCTO = 10;
 
@@ -26,15 +24,17 @@ export const MAX_UNIDADES_POR_PRODUCTO = 10;
 
 /* Devuelve { carrito, agregadas }. "agregadas" es cuántas unidades se
    sumaron de verdad (0 si ya estaba en el máximo). Reglas 1, 2 y 4. */
-export function agregarItem(carrito, id, cantidad = 1) {
+export function agregarItem(carrito, id, cantidad = 1, producto = null) {
     const existente = carrito.find(i => i.id === id);
     const actual = existente ? existente.cantidad : 0;
     const permitido = Math.max(0, Math.min(cantidad, MAX_UNIDADES_POR_PRODUCTO - actual));
     if (permitido === 0) return { carrito, agregadas: 0 };
 
     const nuevo = existente
-        ? carrito.map(i => (i.id === id ? { ...i, cantidad: i.cantidad + permitido } : i))
-        : [...carrito, { id, cantidad: permitido }];
+        ? carrito.map(i => (i.id === id
+            ? { ...i, cantidad: i.cantidad + permitido, ...(producto ? { producto } : {}) }
+            : i))
+        : [...carrito, { id, cantidad: permitido, ...(producto ? { producto } : {}) }];
     return { carrito: nuevo, agregadas: permitido };
 }
 
@@ -56,10 +56,10 @@ export function sanearCarrito(guardado) {
     if (!Array.isArray(guardado)) return [];
 
     return guardado.reduce((lista, item) => {
-        const producto = obtenerProductoPorId(item?.id);
+        const producto = item?.producto;
         const cantidad = Math.floor(Number(item?.cantidad));
-        if (!producto || !(cantidad >= 1)) return lista;       // regla 6
-        return agregarItem(lista, producto.id, cantidad).carrito; // reglas 1, 2 y 4
+        if (!producto?.id || !(cantidad >= 1)) return lista;   // regla 6
+        return agregarItem(lista, producto.id, cantidad, producto).carrito; // reglas 1, 2 y 4
     }, []);
 }
 
@@ -69,14 +69,19 @@ export function sanearCarrito(guardado) {
    Si el producto ya no existe, esa línea se descarta (regla 6). */
 export function detallarCarrito(carrito) {
     return carrito.reduce((lineas, item) => {
-        const p = obtenerProductoPorId(item.id);
+        const p = item.producto;
         if (!p) return lineas;
+        const precio = p.precioFinal ?? p.precio;
+        const precioAnterior = p.precioOferta != null
+            ? p.precio
+            : (p.precioAnterior > precio ? p.precioAnterior : null);
         lineas.push({
             id: p.id,
             nombre: p.nombre,
-            precio: p.precio,
-            precioAnterior: p.precioAnterior > p.precio ? p.precioAnterior : null,
-            imagen: p.imagenes[0],
+            precio,
+            precioAnterior,
+            imagen: p.imagenUrl ?? p.imagenes?.[0],
+            imagenUrl: p.imagenUrl ?? null,
             cantidad: item.cantidad,
         });
         return lineas;

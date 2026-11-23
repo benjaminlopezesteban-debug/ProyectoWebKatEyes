@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { formatearPrecio } from "../utils/formatearPrecio";
-import { resolverImagen } from "../utils/imagenes";
+import { IMG_PLACEHOLDER, resolverImagenLinea } from "../utils/imagenes";
 
 /* Resumen del pedido (la tarjeta de la derecha en el checkout).
    Solo muestra datos: no sabe de dónde vienen (carrito, pedido guardado...). */
@@ -13,10 +13,13 @@ function ResumenPedido({ lineas, total, ahorro }) {
                 {lineas.map(l => (
                     <div className="d-flex align-items-center mb-3" key={l.id}>
                         <img
-                            src={resolverImagen(l.imagen)}
+                            src={resolverImagenLinea(l)}
                             alt={l.nombre}
                             className="rounded me-3"
                             style={{ width: 64, height: 64, objectFit: "cover" }}
+                            onError={(evento) => {
+                                evento.currentTarget.src = IMG_PLACEHOLDER;
+                            }}
                         />
                         <div className="flex-grow-1">
                             <div className="fw-semibold">{l.nombre}</div>

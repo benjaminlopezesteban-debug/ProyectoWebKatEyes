@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import Precio from "./Precio";
 import BotonAgregar from "./BotonAgregar";
-import { resolverImagen } from "../utils/imagenes";
+import { IMG_PLACEHOLDER, resolverImagenProducto } from "../utils/imagenes";
+import { nombreCategoria } from "../utils/producto";
 
 /* Un producto en formato "fila" (imagen | descripción | precio y botones).
    Antes lo generaba renderListaProductos() de index.js con template strings.
@@ -12,17 +13,20 @@ function FilaProducto({ producto, onAgregar }) {
             <div className="row g-0 align-items-center">
                 <div className="col-md-3">
                     <img
-                        src={resolverImagen(producto.imagenes[0])}
+                        src={resolverImagenProducto(producto)}
                         className="img-fluid rounded-start w-100"
                         alt={producto.nombre}
                         style={{ height: 200, objectFit: "cover" }}
+                        onError={(evento) => {
+                            evento.currentTarget.src = IMG_PLACEHOLDER;
+                        }}
                     />
                 </div>
 
                 <div className="col-md-6">
                     <div className="card-body">
                         <h5 className="card-title">{producto.nombre}</h5>
-                        <p className="card-text text-muted mb-1">{producto.categoria}</p>
+                        <p className="card-text text-muted mb-1">{nombreCategoria(producto)}</p>
                         <p className="card-text">{producto.descripcion}</p>
                     </div>
                 </div>

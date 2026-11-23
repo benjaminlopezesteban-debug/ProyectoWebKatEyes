@@ -1,49 +1,49 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import TarjetaProducto from "../components/TarjetaProducto";
-import { obtenerProductos, obtenerCategorias } from "../productos";
+import { listarCategorias } from "../api/endpoints/categorias";
+import { listarProductos } from "../api/endpoints/productos";
 import { useCarrito } from "../context/CarritoContext";
+import { useApi } from "../hooks/useApi";
 
 const PRECIO_MIN_INICIAL = "0";
 const PRECIO_MAX_INICIAL = "100000";
 
-/* ---------- Catálogo (la vista real, con su estado) ---------- */
-function Catalogo({ categoriaInicial, onAgregar }) {
-    const productos = obtenerProductos();
-    const categorias = obtenerCategorias();
+function Productos() {
+    const { agregarAlCarrito } = useCarrito();
+    const [searchParams] = useSearchParams();
+    const categoriaParam = searchParams.get("categoria");
 
-    /* ESTADO: solo lo que el usuario puede cambiar.
-       Sin categoría en la URL → todas marcadas; con categoría → solo esa. */
-    const [seleccionadas, setSeleccionadas] = useState(
-        categoriaInicial ? [categoriaInicial] : categorias
-    );
+    const cargarCategorias = useCallback(() => listarCategorias(), []);
+    const { data: categorias } = useApi(cargarCategorias);
+
+    const [categoriaId, setCategoriaId] = useState("");
     const [precioMin, setPrecioMin] = useState(PRECIO_MIN_INICIAL);
     const [precioMax, setPrecioMax] = useState(PRECIO_MAX_INICIAL);
 
-    /* ESTADO DERIVADO: la lista visible NO es estado; se calcula en cada
-       render a partir de los filtros. Antes eran aplicarFiltros() +
-       renderProductos() llamadas a mano en cada evento; ahora, cuando
-       cambia un filtro, React vuelve a ejecutar esto solo. */
-    const min = Number(precioMin) || 0;
-    const max = Number(precioMax) || Infinity;
-    const visibles = productos.filter(p => {
-        // Igual que en tu versión HTML: sin ninguna categoría marcada, no se filtra por categoría
-        const okCategoria = seleccionadas.length === 0 || seleccionadas.includes(p.categoria);
-        const okPrecio = p.precio >= min && p.precio <= max;
-        return okCategoria && okPrecio;
-    });
-
-    function alternarCategoria(categoria) {
-        // Nunca se modifica el arreglo existente: se crea uno nuevo
-        setSeleccionadas(prev =>
-            prev.includes(categoria)
-                ? prev.filter(c => c !== categoria)
-                : [...prev, categoria]
+    useEffect(() => {
+        if (!categorias) return;
+        const encontrada = categorias.find((categoria) =>
+            String(categoria.id) === categoriaParam ||
+            categoria.nombre?.toLowerCase() === categoriaParam?.toLowerCase() ||
+            categoria.slug?.toLowerCase() === categoriaParam?.toLowerCase()
         );
-    }
+        setCategoriaId(encontrada ? String(encontrada.id) : "");
+    }, [categorias, categoriaParam]);
+
+    const cargarProductos = useCallback(
+        () => listarProductos({
+            categoriaId: categoriaId || undefined,
+            precioMin: precioMin !== "" ? precioMin : undefined,
+            precioMax: precioMax !== "" ? precioMax : undefined,
+        }),
+        [categoriaId, precioMin, precioMax]
+    );
+
+    const { data: productos, loading, error } = useApi(cargarProductos);
 
     function limpiarFiltros() {
-        setSeleccionadas(categorias);
+        setCategoriaId("");
         setPrecioMin(PRECIO_MIN_INICIAL);
         setPrecioMax(PRECIO_MAX_INICIAL);
     }
@@ -51,28 +51,25 @@ function Catalogo({ categoriaInicial, onAgregar }) {
     return (
         <div className="container my-5">
             <div className="row">
-                {/* ================= FILTROS ================= */}
                 <aside className="col-lg-3">
                     <div className="p-3 border rounded-3 panel-filtros">
                         <h2 className="h4 mb-3">Filtros</h2>
 
                         <div className="grupo-filtro mb-4">
-                            <h3 className="h5">Categorías</h3>
-                            {categorias.map(c => {
-                                const id = `cat-${c.replace(/\s/g, "-")}`;
-                                return (
-                                    <div className="form-check" key={c}>
-                                        <input
-                                            className="form-check-input"
-                                            type="checkbox"
-                                            id={id}
-                                            checked={seleccionadas.includes(c)}
-                                            onChange={() => alternarCategoria(c)}
-                                        />
-                                        <label className="form-check-label" htmlFor={id}>{c}</label>
-                                    </div>
-                                );
-                            })}
+                            <label className="form-label" htmlFor="categoria">Categoría</label>
+                            <select
+                                id="categoria"
+                                className="form-select"
+                                value={categoriaId}
+                                onChange={(evento) => setCategoriaId(evento.target.value)}
+                            >
+                                <option value="">Todas</option>
+                                {categorias?.map((categoria) => (
+                                    <option key={categoria.id} value={categoria.id}>
+                                        {categoria.nombre}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         <div className="grupo-filtro mb-4">
@@ -86,7 +83,7 @@ function Catalogo({ categoriaInicial, onAgregar }) {
                                     min="0"
                                     step="1000"
                                     value={precioMin}
-                                    onChange={e => setPrecioMin(e.target.value)}
+                                    onChange={(evento) => setPrecioMin(evento.target.value)}
                                 />
                             </div>
                             <div className="mb-3">
@@ -98,7 +95,7 @@ function Catalogo({ categoriaInicial, onAgregar }) {
                                     min="0"
                                     step="1000"
                                     value={precioMax}
-                                    onChange={e => setPrecioMax(e.target.value)}
+                                    onChange={(evento) => setPrecioMax(evento.target.value)}
                                 />
                             </div>
                         </div>
@@ -111,47 +108,39 @@ function Catalogo({ categoriaInicial, onAgregar }) {
                     </div>
                 </aside>
 
-                {/* ================= CATÁLOGO ================= */}
                 <section className="col-lg-9">
                     <h1 className="mb-4">Productos</h1>
 
-                    <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-                        {visibles.map(p => (
-                            <TarjetaProducto key={p.id} producto={p} onAgregar={onAgregar} />
-                        ))}
-                    </div>
+                    {loading && <div className="alert alert-info">Cargando catálogo...</div>}
 
-                    {/* Renderizado condicional: antes era el atributo "hidden" que se activaba por JS */}
-                    {visibles.length === 0 && (
-                        <div className="alert alert-info mt-4">
-                            No hay productos que coincidan con los filtros.
+                    {error && (
+                        <div className="alert alert-danger" role="alert">
+                            No se pudo cargar el catálogo: {error.mensaje}
                         </div>
+                    )}
+
+                    {!loading && !error && (
+                        <>
+                            <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                                {productos?.map((producto) => (
+                                    <TarjetaProducto
+                                        key={producto.id}
+                                        producto={producto}
+                                        onAgregar={agregarAlCarrito}
+                                    />
+                                ))}
+                            </div>
+
+                            {productos?.length === 0 && (
+                                <div className="alert alert-info mt-4">
+                                    No hay productos que coincidan con los filtros.
+                                </div>
+                            )}
+                        </>
                     )}
                 </section>
             </div>
         </div>
-    );
-}
-
-/* ---------- Envoltorio: lee la URL y reinicia el catálogo si cambia ----------
-   productos?categoria=Labios llega desde el menú del header.
-   El estado inicial de Catalogo se calcula UNA sola vez. Si el usuario ya está
-   en /productos y elige otra categoría del menú, la ruta es la misma y React
-   no vuelve a montar el componente. El truco es la prop "key": cuando cambia,
-   React desmonta el componente y crea uno nuevo, con el estado reiniciado. */
-function Productos() {
-    // Ya no hay función provisoria: se usa la del carrito real
-    const { agregarAlCarrito } = useCarrito();
-    const [searchParams] = useSearchParams();
-    const parametro = searchParams.get("categoria");
-    const categoriaInicial = obtenerCategorias().includes(parametro) ? parametro : null;
-
-    return (
-        <Catalogo
-            key={categoriaInicial ?? "todas"}
-            categoriaInicial={categoriaInicial}
-            onAgregar={agregarAlCarrito}
-        />
     );
 }
 

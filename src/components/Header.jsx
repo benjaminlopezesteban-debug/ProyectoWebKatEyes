@@ -1,25 +1,17 @@
+import { useCallback } from "react";
 import { Link, NavLink } from "react-router-dom";
+import { listarCategorias } from "../api/endpoints/categorias";
+import { useApi } from "../hooks/useApi";
 import { resolverImagen } from "../utils/imagenes";
-
-/* Antes: components/header.html cargado con fetch() desde loadComponents.js.
-   Ahora es un componente que se importa y se dibuja como cualquier otro.
-
-   Las categorías eran 6 <li> copiados a mano; ahora son datos y se
-   recorren con .map(). Si mañana agregas una categoría, solo editas este arreglo. */
-const CATEGORIAS = [
-    { nombre: "Rostro", detalle: "Bases, correctores, polvos" },
-    { nombre: "Ojos", detalle: "Delineadores, sombras, máscaras" },
-    { nombre: "Labios", detalle: "Labiales, brillos, bálsamos" },
-    { nombre: "Uñas", detalle: "Esmaltes y tratamientos" },
-    { nombre: "Cuidado de la piel", detalle: "Cremas, limpiadores, protector" },
-    { nombre: "Accesorios", detalle: "Brochas, esponjas, organizadores" },
-];
 
 /* Props:
    - cantidadCarrito: número que se muestra en la insignia del botón Carrito.
      Antes lo actualizaba updateCartCount() leyendo localStorage; ahora
      lo recibe desde afuera (más adelante vendrá del estado del carrito). */
 function Header({ cantidadCarrito = 0, usuario = null, onCerrarSesion }) {
+    const cargarCategorias = useCallback(() => listarCategorias(), []);
+    const { data: categorias } = useApi(cargarCategorias);
+
     return (
         <nav className="navbar navbar-expand-lg">
             <div className="container-fluid">
@@ -73,14 +65,13 @@ function Header({ cantidadCarrito = 0, usuario = null, onCerrarSesion }) {
                                         <small className="d-block">Todo el catálogo</small>
                                     </Link>
                                 </li>
-                                {CATEGORIAS.map(c => (
-                                    <li key={c.nombre}>
+                                {categorias?.map(c => (
+                                    <li key={c.id}>
                                         <Link
                                             className="dropdown-item"
-                                            to={`/productos?categoria=${encodeURIComponent(c.nombre)}`}
+                                            to={`/productos?categoria=${encodeURIComponent(c.slug)}`}
                                         >
                                             <strong>{c.nombre}</strong>
-                                            <small className="d-block">{c.detalle}</small>
                                         </Link>
                                     </li>
                                 ))}

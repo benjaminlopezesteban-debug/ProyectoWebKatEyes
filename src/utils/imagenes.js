@@ -1,5 +1,6 @@
-/* src/utils/imagenes.js — resuelve nombres de archivo a URLs de src/assets.
+import { urlAsset } from "../api/urlAsset";
 
+/* src/utils/imagenes.js — resuelve nombres de archivo a URLs de src/assets.
    Problema: con las imágenes en src/assets, Vite les cambia el nombre al
    compilar (Base líquida mate.jpg → Base_líquida_mate-a1b2c3.jpg), así que
    no se puede escribir src="/assets/Base líquida mate.jpg" a mano.
@@ -7,7 +8,7 @@
    Solución: import.meta.glob le pide a Vite que procese TODAS las imágenes
    de src/assets (en cualquier subcarpeta) y nos entregue un objeto
    { ruta: urlFinal }. Luego lo reindexamos por nombre de archivo, para que
-   productos.js solo tenga que guardar "Base líquida mate.jpg". */
+   los DTO de blog solo tengan que guardar "Base líquida mate.jpg". */
 
 export const IMG_PLACEHOLDER =
     "data:image/svg+xml;utf8," +
@@ -35,4 +36,20 @@ const IMAGENES = Object.fromEntries(
 /* "Base líquida mate.jpg" → URL final. Si el archivo no existe, devuelve el placeholder. */
 export function resolverImagen(nombreArchivo) {
     return IMAGENES[String(nombreArchivo).normalize("NFC")] ?? IMG_PLACEHOLDER;
+}
+
+/* Producto del catálogo: usa imagenUrl de la API o el asset local legado. */
+export function resolverImagenProducto(producto) {
+    if (producto?.imagenUrl) {
+        return urlAsset(producto.imagenUrl);
+    }
+    return resolverImagen(producto?.imagenes?.[0]);
+}
+
+/* Línea del carrito: usa imagenUrl de la API o el asset local legado. */
+export function resolverImagenLinea(linea) {
+    if (linea?.imagenUrl) {
+        return urlAsset(linea.imagenUrl);
+    }
+    return resolverImagen(linea?.imagen);
 }

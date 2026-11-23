@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import Precio from "./Precio";
-import { resolverImagen } from "../utils/imagenes";
+import { IMG_PLACEHOLDER, resolverImagenProducto } from "../utils/imagenes";
 
 /* Versión compacta de la tarjeta: imagen + nombre + precio, sin botón de compra.
    Se usa en "Productos relacionados" del detalle. Es otro componente (y no una
@@ -13,10 +13,13 @@ function TarjetaRelacionada({ producto }) {
             <div className="card h-100 shadow-sm">
                 <Link to={destino} className="text-decoration-none text-dark">
                     <img
-                        src={resolverImagen(producto.imagenes[0])}
+                        src={resolverImagenProducto(producto)}
                         className="card-img-top"
                         alt={producto.nombre}
                         style={{ height: 150, objectFit: "cover" }}
+                        onError={(evento) => {
+                            evento.currentTarget.src = IMG_PLACEHOLDER;
+                        }}
                     />
                 </Link>
                 <div className="card-body">

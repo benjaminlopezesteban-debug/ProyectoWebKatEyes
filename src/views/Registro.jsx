@@ -1,9 +1,11 @@
+import { useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useFormulario } from "../hooks/useFormulario";
 import { useSesion } from "../context/SesionContext";
 import { validarCampoRegistro, validarRegistro } from "../validaciones";
 import { registrarUsuario } from "../usuarios";
-import { REGIONES, obtenerComunas } from "../regiones";
+import { listarComunas, listarRegiones } from "../api/endpoints/regiones";
+import { useApi } from "../hooks/useApi";
 import CampoFormulario from "../components/CampoFormulario";
 
 const DATOS_INICIALES = {
@@ -33,7 +35,13 @@ function Registro() {
     });
 
     // Dato derivado: las comunas salen de la región elegida (no se guardan aparte)
-    const comunas = obtenerComunas(datos.region);
+    const cargarRegiones = useCallback(() => listarRegiones(), []);
+    const { data: regiones } = useApi(cargarRegiones);
+    const cargarComunas = useCallback(
+        () => (datos.region ? listarComunas(datos.region) : Promise.resolve([])),
+        [datos.region]
+    );
+    const { data: comunas } = useApi(cargarComunas);
 
     /* Caso especial que el hook no conoce: al cambiar de región, la comuna
        elegida antes ya no corresponde, así que se borra. Se reutiliza
@@ -121,8 +129,8 @@ function Registro() {
                                         onChange={cambiarRegion} onBlur={manejarBlur}
                                     >
                                         <option value="">Selecciona una región...</option>
-                                        {REGIONES.map(r => (
-                                            <option key={r.id} value={r.id}>{r.nombre}</option>
+                                        {regiones?.map(r => (
+                                            <option key={r.codigo} value={r.codigo}>{r.nombre}</option>
                                         ))}
                                     </CampoFormulario>
                                     <CampoFormulario
@@ -133,8 +141,8 @@ function Registro() {
                                         disabled={!datos.region}
                                     >
                                         <option value="">Selecciona una comuna...</option>
-                                        {comunas.map(c => (
-                                            <option key={c} value={c}>{c}</option>
+                                        {comunas?.map(c => (
+                                            <option key={c.codigo} value={c.codigo}>{c.nombre}</option>
                                         ))}
                                     </CampoFormulario>
                                 </div>

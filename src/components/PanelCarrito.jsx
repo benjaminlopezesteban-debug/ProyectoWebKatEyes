@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useCarrito } from "../context/CarritoContext";
 import { MAX_UNIDADES_POR_PRODUCTO } from "../carrito";
 import { formatearPrecio } from "../utils/formatearPrecio";
-import { resolverImagen } from "../utils/imagenes";
+import { IMG_PLACEHOLDER, resolverImagenLinea } from "../utils/imagenes";
 import Precio from "./Precio";
 
 /* Antes: el mismo bloque <div id="panel-carrito"> copiado en index.html,
@@ -39,10 +39,13 @@ function PanelCarrito() {
                     {lineas.map(l => (
                         <div className="d-flex align-items-center mb-3" key={l.id}>
                             <img
-                                src={resolverImagen(l.imagen)}
+                                src={resolverImagenLinea(l)}
                                 alt={l.nombre}
                                 className="img-fluid rounded me-3"
                                 style={{ width: 80, height: 80, objectFit: "cover" }}
+                                onError={(evento) => {
+                                    evento.currentTarget.src = IMG_PLACEHOLDER;
+                                }}
                             />
                             <div className="flex-grow-1">
                                 <h6 className="mb-1">{l.nombre}</h6>

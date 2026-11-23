@@ -1,9 +1,9 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
-import { obtenerBlogPorSlug } from "../blogs";
-import { resolverImagen } from "../utils/imagenes";
+import { obtenerBlog } from "../api/endpoints/blogs";
+import { useApi } from "../hooks/useApi";
+import { IMG_PLACEHOLDER, resolverImagen } from "../utils/imagenes";
 
-/* Dibuja UN bloque del contenido según su tipo */
 function Bloque({ bloque }) {
     if (bloque.tipo === "titulo") {
         return <h2 className="h4 mt-4">{bloque.texto}</h2>;
@@ -11,7 +11,7 @@ function Bloque({ bloque }) {
     if (bloque.tipo === "lista") {
         return (
             <ul>
-                {bloque.items.map(item => (
+                {bloque.items?.map(item => (
                     <li key={item.etiqueta}>
                         <strong>{item.etiqueta}:</strong> {item.texto}
                     </li>
@@ -22,21 +22,29 @@ function Bloque({ bloque }) {
     return <p>{bloque.texto}</p>;
 }
 
-/* Reemplaza a Blog1.html y Blog2.html: una sola vista para todas las entradas.
-   La URL /blogs/primavera-tez-clara aporta el "slug"; con él se busca la entrada en blogs.js. */
 function Blog() {
     const { slug } = useParams();
-    const blog = obtenerBlogPorSlug(slug);
+    const cargarBlog = useCallback(() => obtenerBlog(slug), [slug]);
+    const { data: blog, loading, error } = useApi(cargarBlog);
 
     useEffect(() => {
         window.scrollTo(0, 0);
     }, [slug]);
 
-    if (!blog) {
+    if (loading) {
+        return (
+            <div className="container my-5">
+                <div className="alert alert-info">Cargando entrada...</div>
+            </div>
+        );
+    }
+
+    if (error || !blog) {
         return (
             <div className="container my-5">
                 <div className="alert alert-warning text-center">
                     <h1 className="h3">Entrada no encontrada</h1>
+                    <p className="lead">{error?.mensaje ?? "La entrada que buscas no está disponible."}</p>
                     <Link to="/blogs" className="btn btn-primary mt-3">← Volver a Blogs</Link>
                 </div>
             </div>
@@ -49,12 +57,17 @@ function Blog() {
 
             <article className="noticia">
                 <div className="imagen-noticia">
-                    <img src={resolverImagen(blog.imagen)} alt={blog.titulo} />
+                    <img
+                        src={resolverImagen(blog.imagen)}
+                        alt={blog.titulo}
+                        onError={(evento) => {
+                            evento.currentTarget.src = IMG_PLACEHOLDER;
+                        }}
+                    />
                 </div>
                 <div className="contenido-noticia">
                     <h1>{blog.titulo}</h1>
-                    {/* Los bloques son fijos y no se reordenan, por eso aquí el índice sirve como key */}
-                    {blog.contenido.map((bloque, i) => (
+                    {(blog.contenido ?? []).map((bloque, i) => (
                         <Bloque key={i} bloque={bloque} />
                     ))}
                 </div>

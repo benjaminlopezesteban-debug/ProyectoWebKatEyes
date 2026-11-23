@@ -1,21 +1,35 @@
+import { useCallback } from "react";
 import { Link } from "react-router-dom";
-import { obtenerBlogs } from "../blogs";
-import { resolverImagen } from "../utils/imagenes";
+import { listarBlogs } from "../api/endpoints/blogs";
+import { useApi } from "../hooks/useApi";
+import { IMG_PLACEHOLDER, resolverImagen } from "../utils/imagenes";
 
-/* Antes: Blogs.html con dos "recuadros" copiados a mano.
-   Ahora hay un solo recuadro que se repite con .map() para cada entrada de
-   blogs.js: si agregas un tercer blog, aparece aquí sin tocar esta vista. */
 function Blogs() {
-    const blogs = obtenerBlogs();
+    const cargarBlogs = useCallback(() => listarBlogs(), []);
+    const { data: blogs, loading, error } = useApi(cargarBlogs);
 
     return (
         <>
             <h1 className="titulo-central">Lo Destacado</h1>
 
-            {blogs.map(b => (
+            {loading && <p className="text-center text-muted">Cargando entradas...</p>}
+
+            {error && (
+                <div className="alert alert-danger" role="alert">
+                    No se pudieron cargar las entradas: {error.mensaje}
+                </div>
+            )}
+
+            {blogs?.map(b => (
                 <div className="recuadro" key={b.slug}>
                     <div className="imagen-pequena">
-                        <img src={resolverImagen(b.imagen)} alt={b.titulo} />
+                        <img
+                            src={resolverImagen(b.imagen)}
+                            alt={b.titulo}
+                            onError={(evento) => {
+                                evento.currentTarget.src = IMG_PLACEHOLDER;
+                            }}
+                        />
                     </div>
                     <div className="contenido">
                         <h2>
